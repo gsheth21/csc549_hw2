@@ -1,0 +1,18 @@
+node switch(press: bool) returns (mode: int; x: int);
+var
+    pm: int;
+    px: int;
+let
+    pm = 0 -> pre(mode);
+    px = 0 -> pre(x);
+
+    mode = if pm = 0 then
+            if press then 1 else 0
+            else
+            if press or (px >= 10) then 0 else 1;
+
+    x = if pm = 0 then 0
+        else if press or (px >= 10) then 0
+        else px + 1;
+tel
+

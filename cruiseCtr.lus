@@ -1,0 +1,71 @@
+-- cruisectr.lus
+node abs(x: real) returns (y: real);
+let
+  y = if x >= 0.0 then x else -x;
+tel
+
+node measureSpeed(rotate: real) returns (speed: real);
+let
+  speed = rotate * 10.0 * 60.0 / 672.0;
+tel
+
+node setSpeed(cruise, inc, dec: bool; speed: real; pon: bool) 
+returns (on: bool; cruiseSpeed: real);
+var prevSpeed: real;
+let
+  prevSpeed = 0.0 -> if pre(on) then pre(cruiseSpeed) else speed;
+  
+  on = false -> if cruise then not pre(on) else pre(on);
+  
+  cruiseSpeed = if (on and not pre(on)) then speed   -- Activation
+              else if on then prevSpeed + 
+                (if inc then 1.0 else 0.0) - 
+                (if dec then 1.0 else 0.0)
+              else prevSpeed;
+tel
+
+node controlSpeed(cruiseSpeed, speed: real) returns (f: real);
+var error, prev_f: real;
+let
+  prev_f = 0.0 -> pre(f);
+  error = cruiseSpeed - speed;
+  
+  f = if abs(error) > 0.5 and abs(error) < abs(prev_f) then
+        prev_f + 0.25 * (if error > 0.0 then 1.0 else -1.0)
+      else if abs(prev_f) < 0.1 then 0.0
+      else prev_f - 0.15 * (if prev_f > 0.0 then 1.0 else -1.0);
+tel
+
+node changeSpeed(prev_rotate, f: real; on: bool) returns (rotate: real);
+let
+  rotate = if not on then prev_rotate else prev_rotate + f;
+tel
+
+node cruiseCtr(cruise, inc, dec: bool; sensor_rotate: real)
+returns (on: bool; speed, cruiseSpeed, f: real);
+var 
+  internal_rotate: real;
+  current_speed: real;
+  cruise_state: bool;
+  target_speed: real;
+  control_force: real;
+  prev_rotate: real; -- Explicit previous state
+let
+  prev_rotate = 0.0 -> pre(internal_rotate); -- Temporal decoupling
+  
+  current_speed = measureSpeed(prev_rotate); -- Use previous rotation
+  (cruise_state, target_speed) = setSpeed(cruise, inc, dec, current_speed, 
+                                        false -> pre(cruise_state));
+  control_force = if cruise_state then 
+                 controlSpeed(target_speed, current_speed) 
+               else 0.0;
+  
+  internal_rotate = if not cruise_state then sensor_rotate 
+                   else prev_rotate + control_force; -- Use delayed feedback
+  
+  on = cruise_state;
+  speed = current_speed;
+  cruiseSpeed = target_speed;
+  f = control_force;
+tel
+

@@ -1,0 +1,54 @@
+node cruiseCtr(rotateInput: real, cruise, inc, dec: bool)
+returns (on: bool, natSpeed, realForce, cruiseSpeed: real);
+var 
+    prevRotation, rotate, setCruiseSpeed, setForce: real;
+    setOn: bool; 
+let
+    setOn = false -> pre(setOn);
+    
+    prevRotation = 0.0 -> pre(rotate);
+    rotate = if not cruise then 10 * rotateInput
+            else changeSpeed(prevRotation, )
+
+
+
+
+node measureSpeed(rotate: real) returns (speed: real);
+let
+    speed = rotate * 10.0 * 60.0 / 672.0;
+tel
+
+node setSpeed(pOn: bool, cruise, dec, inc: real)
+returns (on: bool, cruiseSpeed: real);
+var prevSpeed: real;
+let
+    on = if cruise then not pOn else pOn;
+    prevSpeed = 0.0 -> pre(cruiseSpeed);
+    cruiseSpeed = if not pOn and on then speed
+                else if inc and on then prevSpeed + 1.0
+                else if dec and on then prevSpeed - 1.0
+                else prevSpeed;
+tel
+
+node controlSpeed(natSpeed, cruiseSpeed: real)
+returns (realForce: real);
+var error, prevForce: real;
+let
+    prevForce = pre(realForce);
+    error = if cruiseSpeed > natSpeed then cruiseSpeed - natSpeed
+            else natSpeed - cruiseSpeed;
+
+    realForce = if error > 0.5 and error < prevForce then
+                    if inc then prevForce + 0.25
+                    else if dec then prevForce - 0.25
+                else if prevForce < 0.1 then 0.0
+                else prevForce - 0.25;
+tel
+
+node changeSpeed(prevRotation, prevForce: real, cruiseState: bool)
+returns (rotate: real);
+let
+    rotate = if cruiseState then prevRotation + prevForce
+            else prevRotation;
+
+

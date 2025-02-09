@@ -1,0 +1,10 @@
+include "switch.lus"
+
+node verify2(press: bool) returns (P: bool);
+var
+    m: int;
+    cnt: int;
+let
+    (m, cnt) = switch(press);
+    P = (m = 1) or (cnt = 0);
+tel

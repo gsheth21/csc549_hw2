@@ -1,0 +1,72 @@
+-- cruisectr.lus
+
+node abs(x: real) returns (y: real);
+let
+  y = if x >= 0.0 then x else -x;
+tel
+
+node measureSpeed(rotate: real) returns (speed: real);
+let
+  speed = rotate * 10.0 * 60.0 / 672.0;
+tel
+
+node setSpeed(cruise, inc, dec: bool; speed: real; pon: bool) 
+returns (on: bool; cruiseSpeed: real);
+var prevSpeed: real;
+let
+  prevSpeed = 0.0 -> if pre(on) then pre(cruiseSpeed) else speed;
+  
+  on = false -> if cruise then not pre(on) else pre(on);
+  
+  cruiseSpeed = if (on and not pre(on)) then speed   -- On activation
+              else if on then prevSpeed + 
+                (if inc then 1.0 else 0.0) - 
+                (if dec then 1.0 else 0.0)
+              else prevSpeed;
+tel
+
+node controlSpeed(cruiseSpeed, speed: real) returns (f: real);
+var error, prev_f: real;
+let
+  prev_f = 0.0 -> pre(f);
+  error = cruiseSpeed - speed;
+  
+  f = if abs(error) > 0.5 and abs(error) < abs(prev_f) 
+      then prev_f + 0.25 * (if error > 0.0 then 1.0 else -1.0)
+    else if abs(prev_f) < 0.1 
+      then 0.0
+    else prev_f - 0.15 * (if prev_f > 0.0 then 1.0 else -1.0);
+tel
+
+node changeSpeed(rotate, f: real; on: bool) returns (new_rotate: real);
+let
+  new_rotate = if not on then rotate 
+              else rotate + f;
+tel
+
+node cruiseCtr(cruise, inc, dec: bool; rotate_in: real)
+returns (on: bool; speed, cruiseSpeed_out, f_out: real);
+var 
+  speed_val: real;
+  on_state: bool;
+  cruise_spd: real;
+  force: real;
+  current_rotate: real;  -- Local state for rotation tracking
+let
+  -- Initialize rotation state with input when cruise is off
+  current_rotate = 0.0 -> if pre(on_state) 
+                          then changeSpeed(pre(current_rotate), pre(force), pre(on_state))
+                          else rotate_in;
+  
+  speed_val = measureSpeed(current_rotate);
+  (on_state, cruise_spd) = setSpeed(cruise, inc, dec, speed_val, 
+                                    false -> pre(on_state));
+  force = controlSpeed(cruise_spd, speed_val);
+  
+  -- Output assignments
+  on = on_state;
+  speed = speed_val;
+  cruiseSpeed_out = cruise_spd;
+  f_out = if on_state then force else 0.0;
+tel
+
